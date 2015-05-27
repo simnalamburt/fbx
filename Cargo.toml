@@ -6,5 +6,6 @@ authors = [
   "JongChan Choi <jong@chan.moe>"
 ]
 description = "Autodesk FBX parser for Rust"
+repository = "https://github.com/simnalamburt/fbx"
 keywords = ["fbx", "graphics", "3d", "model"]
 license = "Zlib"
