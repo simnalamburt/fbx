@@ -1,6 +1,7 @@
 const TAB_WIDTH: usize = 4;
 
-enum TokenType {
+#[derive(Clone)]
+pub enum TokenType {
     OpenBracket,
     CloseBracket,
     Data,
@@ -9,14 +10,14 @@ enum TokenType {
 }
 
 pub struct Token {
-    token_type: TokenType,
-    contents: String,
-    line: usize,
-    column: usize,
+    pub token_type: TokenType,
+    pub contents: String,
+    pub line: usize,
+    pub column: usize,
 }
 
 pub fn tokenize(input: &str) -> Vec<Token> {
-    let chars: Vec<char> = input.chars().collect::<Vec<char>>();
+    let chars: Vec<char> = input.chars().collect();
     let mut result: Vec<Token> = vec![];
     let mut line: usize = 1;
     let mut column: usize = 1;
@@ -25,38 +26,6 @@ pub fn tokenize(input: &str) -> Vec<Token> {
     let mut comment = false;
     let mut in_double_quotes = false;
     let mut pending_data_token = false;
-    let mut process_data_token = |token_type: TokenType, must_have_token: bool| {
-        if (token_begin != None) && (token_end != None) {
-            let mut in_double_quotes = false;
-            cfor!{
-                let mut cur = token_begin.unwrap();
-                cur != token_end.unwrap() + 1;
-                cur += 1;
-                {
-                    let c = chars[cur];
-                    if c == '\"' {
-                        in_double_quotes = !in_double_quotes;
-                    }
-                    if !in_double_quotes && is_space_or_new_line(c) {
-                        panic!("unexpected whitespace in token");
-                    }
-                    if in_double_quotes {
-                        panic!("non-terminated double quotes");
-                    }
-                    result.push(Token {
-                        token_type: token_type,
-                        contents: input[token_begin.unwrap()..token_end.unwrap()].to_string(),
-                        line: line,
-                        column: column,
-                    });
-                }
-            }
-        } else if (must_have_token) {
-            panic!("unexpected character, expected data token");
-        }
-        token_begin = None;
-        token_end = None;
-    };
     cfor!{
         let mut cur: usize = 0;
         cur < chars.len();
@@ -76,7 +45,12 @@ pub fn tokenize(input: &str) -> Vec<Token> {
                     in_double_quotes = false;
                     pending_data_token = false;
                     token_end = Some(cur);
-                    process_data_token(TokenType::Data, false);
+                    process_data_token(
+                        &mut result, &input, &chars,
+                        &line, &column,
+                        &mut token_begin, &mut token_end,
+                        TokenType::Data, false
+                    );
                 }
                 continue;
             }
@@ -90,12 +64,22 @@ pub fn tokenize(input: &str) -> Vec<Token> {
                     continue;
                 },
                 ';' => {
-                    process_data_token(TokenType::Data, false);
+                    process_data_token(
+                        &mut result, &input, &chars,
+                        &line, &column,
+                        &mut token_begin, &mut token_end,
+                        TokenType::Data, false
+                    );
                     comment = true;
                     continue;
                 },
                 '{' => {
-                    process_data_token(TokenType::Data, false);
+                    process_data_token(
+                        &mut result, &input, &chars,
+                        &line, &column,
+                        &mut token_begin, &mut token_end,
+                        TokenType::Data, false
+                    );
                     result.push(Token {
                         token_type: TokenType::OpenBracket,
                         contents: input[cur..(cur + 1)].to_string(),
@@ -105,7 +89,12 @@ pub fn tokenize(input: &str) -> Vec<Token> {
                     continue;
                 },
                 '}' => {
-                    process_data_token(TokenType::Data, false);
+                    process_data_token(
+                        &mut result, &input, &chars,
+                        &line, &column,
+                        &mut token_begin, &mut token_end,
+                        TokenType::Data, false
+                    );
                     result.push(Token {
                         token_type: TokenType::CloseBracket,
                         contents: input[cur..(cur + 1)].to_string(),
@@ -116,7 +105,12 @@ pub fn tokenize(input: &str) -> Vec<Token> {
                 },
                 ',' => {
                     if pending_data_token {
-                        process_data_token(TokenType::Data, true);
+                        process_data_token(
+                            &mut result, &input, &chars,
+                            &line, &column,
+                            &mut token_begin, &mut token_end,
+                            TokenType::Data, true
+                        );
                     }
                     result.push(Token {
                         token_type: TokenType::Comma,
@@ -128,7 +122,12 @@ pub fn tokenize(input: &str) -> Vec<Token> {
                 },
                 ':' => {
                     if pending_data_token {
-                        process_data_token(TokenType::Data, true);
+                        process_data_token(
+                            &mut result, &input, &chars,
+                            &line, &column,
+                            &mut token_begin, &mut token_end,
+                            TokenType::Data, true
+                        );
                     } else {
                         panic!("unexpected colon");
                     }
@@ -150,7 +149,12 @@ pub fn tokenize(input: &str) -> Vec<Token> {
                                     }
                                 }
                             }
-                            process_data_token(token_type, false);
+                            process_data_token(
+                                &mut result, &input, &chars,
+                                &line, &column,
+                                &mut token_begin, &mut token_end,
+                                token_type, false
+                            );
                         }
                         pending_data_token = false;
                     } else {
@@ -162,7 +166,6 @@ pub fn tokenize(input: &str) -> Vec<Token> {
                     }
                 },
             }
-            println!("{}, {}", cur, c);
         }
     }
     return result;
@@ -184,4 +187,45 @@ fn is_line_end(c: char) -> bool {
 
 fn is_space_or_new_line(c: char) -> bool {
     is_space(c) || is_line_end(c)
+}
+
+fn process_data_token(result: &mut Vec<Token>,
+                      input: &str,
+                      chars: &Vec<char>,
+                      line: &usize,
+                      column: &usize,
+                      token_begin: &mut Option<usize>,
+                      token_end: &mut Option<usize>,
+                      token_type: TokenType,
+                      must_have_token: bool) {
+    if (*token_begin != None) && (*token_end != None) {
+        let mut in_double_quotes = false;
+        cfor!{
+            let mut cur = token_begin.unwrap();
+            cur != token_end.unwrap() + 1;
+            cur += 1;
+            {
+                let c = chars[cur];
+                if c == '\"' {
+                    in_double_quotes = !in_double_quotes;
+                }
+                if !in_double_quotes && is_space_or_new_line(c) {
+                    panic!("unexpected whitespace in token");
+                }
+                if in_double_quotes {
+                    panic!("non-terminated double quotes");
+                }
+                result.push(Token {
+                    token_type: token_type.clone(),
+                    contents: input[token_begin.unwrap()..token_end.unwrap()].to_string(),
+                    line: *line,
+                    column: *column,
+                });
+            }
+        }
+    } else if (must_have_token) {
+        panic!("unexpected character, expected data token");
+    }
+    *token_begin = None;
+    *token_end = None;
 }
