@@ -16,6 +16,18 @@ pub struct Token {
     pub column: usize,
 }
 
+impl Token {
+    fn new(token_type: TokenType, contents: String, line: usize, column: usize) -> Token {
+        assert!(contents.len() > 0);
+        return Token {
+            token_type: token_type,
+            contents: contents,
+            line: line,
+            column: column,
+        };
+    }
+}
+
 pub fn tokenize(input: &str) -> Vec<Token> {
     let chars: Vec<char> = input.chars().collect();
     let mut result: Vec<Token> = vec![];
@@ -80,12 +92,7 @@ pub fn tokenize(input: &str) -> Vec<Token> {
                         &mut token_begin, &mut token_end,
                         TokenType::Data, false
                     );
-                    result.push(Token {
-                        token_type: TokenType::OpenBracket,
-                        contents: input[cur..(cur + 1)].to_string(),
-                        line: line,
-                        column: column,
-                    });
+                    result.push(Token::new(TokenType::OpenBracket, input[cur..(cur + 1)].to_string(), line, column));
                     continue;
                 },
                 '}' => {
@@ -95,12 +102,7 @@ pub fn tokenize(input: &str) -> Vec<Token> {
                         &mut token_begin, &mut token_end,
                         TokenType::Data, false
                     );
-                    result.push(Token {
-                        token_type: TokenType::CloseBracket,
-                        contents: input[cur..(cur + 1)].to_string(),
-                        line: line,
-                        column: column,
-                    });
+                    result.push(Token::new(TokenType::CloseBracket, input[cur..(cur + 1)].to_string(), line, column));
                     continue;
                 },
                 ',' => {
@@ -112,12 +114,7 @@ pub fn tokenize(input: &str) -> Vec<Token> {
                             TokenType::Data, true
                         );
                     }
-                    result.push(Token {
-                        token_type: TokenType::Comma,
-                        contents: input[cur..(cur + 1)].to_string(),
-                        line: line,
-                        column: column,
-                    });
+                    result.push(Token::new(TokenType::Comma, input[cur..(cur + 1)].to_string(), line, column));
                     continue;
                 },
                 ':' => {
@@ -126,7 +123,7 @@ pub fn tokenize(input: &str) -> Vec<Token> {
                             &mut result, &input, &chars,
                             &line, &column,
                             &mut token_begin, &mut token_end,
-                            TokenType::Data, true
+                            TokenType::Key, true
                         );
                     } else {
                         panic!("unexpected colon");
@@ -212,17 +209,12 @@ fn process_data_token(result: &mut Vec<Token>,
                 if !in_double_quotes && is_space_or_new_line(c) {
                     panic!("unexpected whitespace in token");
                 }
-                if in_double_quotes {
-                    panic!("non-terminated double quotes");
-                }
-                result.push(Token {
-                    token_type: token_type.clone(),
-                    contents: input[token_begin.unwrap()..token_end.unwrap()].to_string(),
-                    line: *line,
-                    column: *column,
-                });
             }
         }
+        if in_double_quotes {
+            panic!("non-terminated double quotes");
+        }
+        result.push(Token::new(token_type.clone(), input[token_begin.unwrap()..(token_end.unwrap() + 1)].to_string(), *line, *column));
     } else if (must_have_token) {
         panic!("unexpected character, expected data token");
     }
