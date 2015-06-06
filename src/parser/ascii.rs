@@ -68,7 +68,7 @@ pub fn tokenize(input: &str) -> Vec<Token> {
             }
             match c {
                 '\"' => {
-                    if token_begin == None {
+                    if token_begin != None {
                         panic!("unexpected double-quote");
                     }
                     token_begin = Some(cur);
