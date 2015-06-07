@@ -1,3 +1,5 @@
+use fbx;
+
 const TAB_WIDTH: usize = 4;
 
 #[derive(Clone)]
@@ -26,6 +28,16 @@ impl Token {
             column: column,
         };
     }
+}
+
+pub fn parse(tokens: Vec<Token>) -> fbx::Document {
+    let mut document = fbx::Document::new();
+    // TODO: parse
+    return document;
+}
+
+pub fn parse_from_string(input: &str) -> fbx::Document {
+    parse(tokenize(input))
 }
 
 pub fn tokenize(input: &str) -> Vec<Token> {
